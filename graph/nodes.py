@@ -70,7 +70,7 @@ def study_plan_node(llm):
         
         # دریافت پاسخ از LLM
         messages = prompt.format_messages(**prompt_values)
-        response = llm(messages)
+        response = llm.invoke(messages)
         
         # ذخیره پاسخ در state
         state["response"] = response.content
@@ -128,7 +128,7 @@ def performance_analysis_node(llm):
         
         # دریافت پاسخ از LLM
         messages = prompt.format_messages(**prompt_values)
-        response = llm(messages)
+        response = llm.invoke(messages)
         
         # ذخیره پاسخ در state
         state["response"] = response.content
@@ -184,7 +184,7 @@ def general_chat_node(llm):
         
         # دریافت پاسخ از LLM
         messages = prompt.format_messages(**prompt_values)
-        response = llm(messages)
+        response = llm.invoke(messages)
         
         # ذخیره پاسخ در state
         state["response"] = response.content

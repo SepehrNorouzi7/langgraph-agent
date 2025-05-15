@@ -32,10 +32,8 @@ def build_langgraph(llm):
     graph.add_node("performance_analysis", performance_analysis_node(llm))
     graph.add_node("general_chat", general_chat_node(llm))
 
-    graph.add_edge(START, "profile")
-    
     # تعریف مسیرها
-    # ابتدا بررسی پروفایل، سپس تشخیص نوع درخواست
+    graph.add_edge(START, "profile")
     graph.add_edge("profile", "router")
     
     # روتر تصمیم می‌گیرد کدام نود بعدی استفاده شود
@@ -59,8 +57,10 @@ def build_langgraph(llm):
         }
     )
     
-    # تعریف نود پایانی
-    graph.set_finish_point(["study_plan", "performance_analysis", "general_chat"])
+    # همه نودها به END وصل شوند
+    graph.add_edge("study_plan", END)
+    graph.add_edge("performance_analysis", END)
+    graph.add_edge("general_chat", END)
     
     # کامپایل کردن گراف
     workflow = graph.compile()
@@ -84,7 +84,6 @@ async def process_with_langgraph(input_data):
             state["exam_results"] = input_data["exam_results"]
         
         # اجرای گراف
-        from graph.builder import build_langgraph
         from langchain_openai import ChatOpenAI
         import config
 
@@ -99,10 +98,29 @@ async def process_with_langgraph(input_data):
         workflow = build_langgraph(llm)
         result = workflow.invoke(state)
         
-        # به‌روزرسانی حافظه
-        update_memory(state["memory"], input_data.get("message", ""), result["response"])
+        # برای دیباگ کردن
+        logger.info(f"LangGraph result: {result}")
         
-        return result["response"]
+        # به‌روزرسانی حافظه و بازگرداندن پاسخ
+        if result and "response" in result and result["response"]:
+            update_memory(state["memory"], input_data.get("message", ""), result["response"])
+            return result["response"]
+        else:
+            # اگر پاسخی در نتیجه نیست، از آخرین نود استفاده کنیم
+            last_node_output = None
+            if "study_plan" in result:
+                last_node_output = result["study_plan"]["response"]
+            elif "performance_analysis" in result:
+                last_node_output = result["performance_analysis"]["response"]
+            elif "general_chat" in result:
+                last_node_output = result["general_chat"]["response"]
+            
+            if last_node_output:
+                update_memory(state["memory"], input_data.get("message", ""), last_node_output)
+                return last_node_output
+            
+            logger.error("نتیجه LangGraph خالی یا نامعتبر است")
+            return "متأسفانه در پردازش درخواست شما مشکلی پیش آمد. لطفاً دوباره تلاش کنید."
     
     except Exception as e:
         logger.error(f"خطا در پردازش با LangGraph: {e}")
