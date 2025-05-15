@@ -84,7 +84,20 @@ async def process_with_langgraph(input_data):
             state["exam_results"] = input_data["exam_results"]
         
         # اجرای گراف
-        result = workflow(state)
+        from graph.builder import build_langgraph
+        from langchain_openai import ChatOpenAI
+        import config
+
+        # Create llm instance
+        llm = ChatOpenAI(
+            model=config.MODEL_NAME,
+            temperature=0.7,
+            api_key=config.OPENAI_API_KEY
+        )
+
+        # Get the workflow
+        workflow = build_langgraph(llm)
+        result = workflow.invoke(state)
         
         # به‌روزرسانی حافظه
         update_memory(state["memory"], input_data.get("message", ""), result["response"])

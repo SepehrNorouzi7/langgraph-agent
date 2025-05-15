@@ -25,8 +25,7 @@ logger = logging.getLogger(__name__)
 
 def setup_bot():
     """راه‌اندازی بات تلگرام و ثبت هندلرها"""
-    application = ApplicationBuilder().token("YOUR_TOKEN_HERE").build()  
-    
+    application = ApplicationBuilder().token(config.TELEGRAM_BOT_TOKEN).build()
     # ثبت هندلرهای دستورات
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))

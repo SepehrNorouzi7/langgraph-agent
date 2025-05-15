@@ -1,8 +1,7 @@
 import logging
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.constants import ParseMode
-from telegram.ext import CallbackContext
-
+from telegram.ext import CallbackContext, ConversationHandler
 from db.models import get_user_profile, update_user_profile
 from graph.builder import process_with_langgraph
 from bot.utils import format_message, create_profile_keyboard, create_main_keyboard
@@ -120,7 +119,6 @@ async def profile_desired_major(update: Update, context: CallbackContext) -> int
         return ConversationHandler.END
     
     context.user_data["desired_major"] = update.message.text
-    
     # ذخیره پروفایل در پایگاه داده
     user_id = update.effective_user.id
     profile_data = {
@@ -132,8 +130,7 @@ async def profile_desired_major(update: Update, context: CallbackContext) -> int
         "desired_major": context.user_data.get("desired_major", ""),
         "complete": True
     }
-    
-    await update.user_profile(user_id, profile_data)
+    await update_user_profile(user_id, profile_data)
     
     await update.message.reply_text(
         "✅ اطلاعات پروفایل شما با موفقیت ذخیره شد!\n"
