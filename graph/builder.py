@@ -13,17 +13,15 @@ logger = logging.getLogger(__name__)
 def build_langgraph(llm):
     """ساخت گراف LangGraph برای بات مشاور تحصیلی"""
     # تعریف ساختار حالت اولیه
-    def initial_state():
-        return {
-            "messages": [],  # پیام‌های مکالمه
-            "user_profile": {},  # پروفایل کاربر
-            "request_type": None,  # نوع درخواست (مشاوره، برنامه مطالعه، تحلیل)
-            "memory": get_memory(),  # حافظه بات
-            "response": None,  # پاسخ نهایی بات
-        }
+    class State(dict):
+        messages: list
+        user_profile: dict
+        request_type: str
+        memory: dict
+        response: str = None
     
     # ایجاد گراف
-    graph = StateGraph(initial_state)
+    graph = StateGraph(State)
     
     # افزودن نودها (گره‌ها) به گراف
     graph.add_node("profile", profile_node)
@@ -94,33 +92,31 @@ async def process_with_langgraph(input_data):
             api_key=config.OPENAI_API_KEY
         )
 
-        # Get the workflow
-        workflow = build_langgraph(llm)
-        result = workflow.invoke(state)
+        # روش مستقیم: به جای استفاده از گراف، مستقیم به نودهای مناسب دسترسی پیدا کنیم
+        request_type = input_data.get("type", "general_chat")
         
-        # برای دیباگ کردن
-        logger.info(f"LangGraph result: {result}")
+        # ابتدا بررسی پروفایل
+        state = profile_node(state)
         
-        # به‌روزرسانی حافظه و بازگرداندن پاسخ
-        if result and "response" in result and result["response"]:
-            update_memory(state["memory"], input_data.get("message", ""), result["response"])
-            return result["response"]
+        # اگر پاسخی از پروفایل نود دریافت شد، آن را برگردانیم
+        if state.get("response"):
+            return state["response"]
+        
+        # اجرای نود مناسب بر اساس نوع درخواست
+        if request_type == "study_plan":
+            state = study_plan_node(llm)(state)
+        elif request_type == "performance_analysis":
+            state = performance_analysis_node(llm)(state)
         else:
-            # اگر پاسخی در نتیجه نیست، از آخرین نود استفاده کنیم
-            last_node_output = None
-            if "study_plan" in result:
-                last_node_output = result["study_plan"]["response"]
-            elif "performance_analysis" in result:
-                last_node_output = result["performance_analysis"]["response"]
-            elif "general_chat" in result:
-                last_node_output = result["general_chat"]["response"]
-            
-            if last_node_output:
-                update_memory(state["memory"], input_data.get("message", ""), last_node_output)
-                return last_node_output
-            
-            logger.error("نتیجه LangGraph خالی یا نامعتبر است")
-            return "متأسفانه در پردازش درخواست شما مشکلی پیش آمد. لطفاً دوباره تلاش کنید."
+            state = general_chat_node(llm)(state)
+        
+        # ذخیره در حافظه و برگرداندن پاسخ
+        if state.get("response"):
+            update_memory(state["memory"], input_data.get("message", ""), state["response"])
+            return state["response"]
+        
+        logger.error("نتیجه پردازش خالی است")
+        return "متأسفانه در پردازش درخواست شما مشکلی پیش آمد. لطفاً دوباره تلاش کنید."
     
     except Exception as e:
         logger.error(f"خطا در پردازش با LangGraph: {e}")

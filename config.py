@@ -32,3 +32,5 @@ DEFAULT_MESSAGES = {
 
 # حداکثر تعداد پیام‌های ذخیره شده در حافظه کوتاه مدت
 MAX_SHORT_TERM_MEMORY = 10
+
+event_based = False
