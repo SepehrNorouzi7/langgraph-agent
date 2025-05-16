@@ -70,32 +70,41 @@ async def profile_conversation(update: Update, context: CallbackContext) -> int:
     try:
         response = await process_with_langgraph(input_data)
         
-        # Update profile if LLM extracted any information
-        if "extracted_info" in response:
-            for key, value in response["extracted_info"].items():
-                context.user_data["profile"][key] = value
-        
-        # Check if profile is complete
-        if response.get("profile_complete", False):
-            # Save the complete profile
-            user_id = update.effective_user.id
-            profile_data = context.user_data["profile"]
-            profile_data["complete"] = True
-            await update_user_profile(user_id, profile_data)
+        # Check if response is a dictionary (as expected)
+        if isinstance(response, dict):
+            # Update profile if LLM extracted any information
+            if "extracted_info" in response:
+                for key, value in response["extracted_info"].items():
+                    context.user_data["profile"][key] = value
             
-            await update.message.reply_text(
-                "✅ اطلاعات پروفایل شما با موفقیت ذخیره شد!\n"
-                "حالا می‌توانید از خدمات مشاوره تحصیلی استفاده کنید.",
-                reply_markup=create_main_keyboard()
-            )
-            
-            # Clear temporary data
-            context.user_data.clear()
-            return ConversationHandler.END
+            # Check if profile is complete
+            if response.get("profile_complete", False):
+                # Save the complete profile
+                user_id = update.effective_user.id
+                profile_data = context.user_data["profile"]
+                profile_data["complete"] = True
+                await update_user_profile(user_id, profile_data)
+                
+                await update.message.reply_text(
+                    "✅ اطلاعات پروفایل شما با موفقیت ذخیره شد!\n"
+                    "حالا می‌توانید از خدمات مشاوره تحصیلی استفاده کنید.",
+                    reply_markup=create_main_keyboard()
+                )
+                
+                # Clear temporary data
+                context.user_data.clear()
+                return ConversationHandler.END
+            else:
+                # Continue conversation with the next question
+                await update.message.reply_text(response["next_question"])
+                return WAITING_FOR_PROFILE
         else:
-            # Continue conversation with the next question
-            await update.message.reply_text(response["next_question"])
+            # Response is a string - just show it and continue the conversation
+            await update.message.reply_text(
+                "لطفاً اطلاعات بیشتری ارائه دهید (نام، پایه تحصیلی، علایق و...):"
+            )
             return WAITING_FOR_PROFILE
+            
     except Exception as e:
         logger.error(f"خطا در پردازش پروفایل: {e}")
         await update.message.reply_text("متأسفانه در پردازش اطلاعات مشکلی پیش آمد. لطفاً دوباره تلاش کنید.")
