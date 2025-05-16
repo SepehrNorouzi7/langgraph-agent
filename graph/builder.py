@@ -1,4 +1,4 @@
-from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.graph import StateGraph, START, END, MessageGraphState
 from langchain.schema import HumanMessage, AIMessage
 from graph.memory import create_memory_graph, save_chat_message
 import logging
@@ -18,7 +18,7 @@ def build_langgraph(llm):
     memory_graph = create_memory_graph(max_messages=config.MAX_SHORT_TERM_MEMORY)
     
     # تعریف ساختار حالت که شامل حافظه است
-    class State(MessagesState):
+    class State(MessageGraphState):
         user_profile: dict
         request_type: str
         response: str = None
