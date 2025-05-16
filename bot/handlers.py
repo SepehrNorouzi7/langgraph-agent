@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 # حالت‌های مختلف برای مکالمه
 WAITING_FOR_NAME, WAITING_FOR_GRADE, WAITING_FOR_EXAM_DATE, WAITING_FOR_FAVORITE_SUBJECTS, WAITING_FOR_DISLIKED_SUBJECTS, WAITING_FOR_DESIRED_MAJOR = range(6)
-WAITING_FOR_PROFILE = 6
 
 async def start_command(update: Update, context: CallbackContext) -> None:
     """دستور شروع گفتگو با بات"""
@@ -43,63 +42,10 @@ async def help_command(update: Update, context: CallbackContext) -> None:
 async def profile_command(update: Update, context: CallbackContext) -> int:
     """شروع فرآیند تکمیل پروفایل"""
     await update.message.reply_text(
-        "لطفاً خودتو رو معرفی کن. چیزایی مثل نام، پایه تحصیلی، و علاقه هاتو بگو:",
+        "لطفاً نام و نام خانوادگی خود را وارد کنید:",
         reply_markup=ReplyKeyboardMarkup([["انصراف"]], one_time_keyboard=True, resize_keyboard=True)
     )
-    # Initialize an empty profile in user_data
-    context.user_data["profile"] = {}
-    context.user_data["profile_state"] = "collecting"
-    return WAITING_FOR_PROFILE
-
-async def profile_conversation(update: Update, context: CallbackContext) -> int:
-    """گفتگوی هوشمند برای تکمیل پروفایل"""
-    if update.message.text == "انصراف":
-        await update.message.reply_text("فرآیند تکمیل پروفایل لغو شد.")
-        return ConversationHandler.END
-    
-    # Get user's message
-    user_message = update.message.text
-    
-    # Process with LLM to extract profile info and decide next question
-    input_data = {
-        "type": "profile_collection",
-        "message": user_message,
-        "user_profile": context.user_data.get("profile", {})
-    }
-    
-    try:
-        response = await process_with_langgraph(input_data)
-        
-        # Update profile if LLM extracted any information
-        if "extracted_info" in response:
-            for key, value in response["extracted_info"].items():
-                context.user_data["profile"][key] = value
-        
-        # Check if profile is complete
-        if response.get("profile_complete", False):
-            # Save the complete profile
-            user_id = update.effective_user.id
-            profile_data = context.user_data["profile"]
-            profile_data["complete"] = True
-            await update_user_profile(user_id, profile_data)
-            
-            await update.message.reply_text(
-                "✅ اطلاعات پروفایل شما با موفقیت ذخیره شد!\n"
-                "حالا می‌توانید از خدمات مشاوره تحصیلی استفاده کنید.",
-                reply_markup=create_main_keyboard()
-            )
-            
-            # Clear temporary data
-            context.user_data.clear()
-            return ConversationHandler.END
-        else:
-            # Continue conversation with the next question
-            await update.message.reply_text(response["next_question"])
-            return WAITING_FOR_PROFILE
-    except Exception as e:
-        logger.error(f"خطا در پردازش پروفایل: {e}")
-        await update.message.reply_text("متأسفانه در پردازش اطلاعات مشکلی پیش آمد. لطفاً دوباره تلاش کنید.")
-        return ConversationHandler.END
+    return WAITING_FOR_NAME
 
 async def profile_name(update: Update, context: CallbackContext) -> int:
     """دریافت نام کاربر"""
