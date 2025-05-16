@@ -1,10 +1,9 @@
 from langgraph.graph import StateGraph, START, END
 from langchain.schema import HumanMessage, AIMessage
 import logging
-
 from graph.nodes import (
     profile_node, router_node, study_plan_node, 
-    performance_analysis_node, general_chat_node
+    performance_analysis_node, general_chat_node, profile_collection_node
 )
 from graph.memory import get_memory, update_memory
 
@@ -25,6 +24,7 @@ def build_langgraph(llm):
     
     # افزودن نودها (گره‌ها) به گراف
     graph.add_node("profile", profile_node)
+    graph.add_node("profile_collection", profile_collection_node(llm))
     graph.add_node("router", router_node)
     graph.add_node("study_plan", study_plan_node(llm))
     graph.add_node("performance_analysis", performance_analysis_node(llm))
@@ -37,7 +37,9 @@ def build_langgraph(llm):
     # روتر تصمیم می‌گیرد کدام نود بعدی استفاده شود
     def route_request(state):
         request_type = state["request_type"]
-        if request_type == "study_plan":
+        if request_type == "profile_collection":
+            return "profile_collection"
+        elif request_type == "study_plan":
             return "study_plan"
         elif request_type == "performance_analysis":
             return "performance_analysis"
@@ -49,6 +51,7 @@ def build_langgraph(llm):
         "router",
         route_request,
         {
+            "profile_collection": "profile_collection",
             "study_plan": "study_plan",
             "performance_analysis": "performance_analysis",
             "general_chat": "general_chat"
@@ -56,6 +59,7 @@ def build_langgraph(llm):
     )
     
     # همه نودها به END وصل شوند
+    graph.add_edge("profile_collection", END)
     graph.add_edge("study_plan", END)
     graph.add_edge("performance_analysis", END)
     graph.add_edge("general_chat", END)
@@ -107,8 +111,11 @@ async def process_with_langgraph(input_data):
             state = study_plan_node(llm)(state)
         elif request_type == "performance_analysis":
             state = performance_analysis_node(llm)(state)
+        elif request_type == "profile_collection":
+            state = profile_collection_node(llm)(state)
         else:
             state = general_chat_node(llm)(state)
+            
         
         # ذخیره در حافظه و برگرداندن پاسخ
         if state.get("response"):

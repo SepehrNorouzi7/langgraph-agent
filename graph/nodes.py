@@ -24,6 +24,80 @@ def router_node(state):
     # نوع درخواست از قبل تعیین شده است (در process_with_langgraph)
     return state
 
+def profile_collection_node(llm):
+    """گره جمع‌آوری اطلاعات پروفایل به صورت گفتگویی"""
+    def process_profile_conversation(state):
+        current_profile = state.get("user_profile", {})
+        message = state["messages"][-1].content if state["messages"] else ""
+        
+        # Create a template for the LLM
+        template = """
+        شما دستیار هوشمندی هستید که به جمع‌آوری اطلاعات پروفایل دانش‌آموزان کمک می‌کنید.
+        
+        پروفایل فعلی کاربر:
+        {current_profile}
+        
+        پیام کاربر: {message}
+        
+        لطفا اطلاعات جدید را از پیام کاربر استخراج کنید و تصمیم بگیرید که چه اطلاعاتی هنوز نیاز است.
+        
+        اطلاعات ضروری مورد نیاز:
+        - نام (name)
+        - پایه تحصیلی (grade)
+        - تاریخ کنکور (exam_date)
+        - دروس مورد علاقه (favorite_subjects)
+        - دروس مورد نفرت (disliked_subjects)
+        - رشته مورد نظر (desired_major)
+        
+        خروجی شما باید به شکل JSON باشد:
+        {
+            "extracted_info": {{اطلاعات استخراج شده به صورت key-value}},
+            "profile_complete": true/false,
+            "next_question": "سوال بعدی برای تکمیل اطلاعات"
+        }
+        """
+        
+        # Fill in the prompt with user's profile and message
+        prompt = ChatPromptTemplate.from_template(template)
+        current_profile_text = "\n".join([f"- {key}: {value}" for key, value in current_profile.items()])
+        
+        prompt_values = {
+            "current_profile": current_profile_text,
+            "message": message,
+        }
+        
+        # Get response from LLM
+        messages = prompt.format_messages(**prompt_values)
+        response = llm.invoke(messages)
+        
+        # Process the response
+        import json
+        try:
+            # Extract the JSON part
+            response_text = response.content
+            # Find JSON object in the response
+            import re
+            json_match = re.search(r'({.*})', response_text, re.DOTALL)
+            if json_match:
+                response_json = json.loads(json_match.group(1))
+                state["response"] = response_json
+            else:
+                state["response"] = {
+                    "extracted_info": {},
+                    "profile_complete": False,
+                    "next_question": "متوجه نشدم. لطفاً اطلاعات بیشتری در مورد خود بدهید (نام، پایه تحصیلی، تاریخ کنکور و...)."
+                }
+        except json.JSONDecodeError:
+            state["response"] = {
+                "extracted_info": {},
+                "profile_complete": False,
+                "next_question": "متوجه نشدم. لطفاً اطلاعات بیشتری در مورد خود بدهید (نام، پایه تحصیلی، تاریخ کنکور و...)."
+            }
+        
+        return state
+    
+    return process_profile_conversation
+
 def study_plan_node(llm):
     """گره ایجاد برنامه مطالعاتی"""
     def generate_study_plan(state):
