@@ -191,10 +191,9 @@ async def text_message_handler(update: Update, context: CallbackContext) -> None
         
         # ارسال به LangGraph برای پردازش
         input_data = {
-            "type": "general_chat",
+            "type": "study_plan",
             "user_profile": user_profile,
-            "message": message_text,
-            "user_id": user_id  
+            "message": message_text
         }
         
         try:
@@ -220,8 +219,7 @@ async def text_message_handler(update: Update, context: CallbackContext) -> None
         input_data = {
             "type": "performance_analysis",
             "user_profile": user_profile,
-            "exam_results": exam_results,
-            "user_id": user_id
+            "exam_results": exam_results
         }
         
         try:
@@ -245,8 +243,7 @@ async def text_message_handler(update: Update, context: CallbackContext) -> None
         input_data = {
             "type": "general_chat",
             "user_profile": user_profile,
-            "message": message_text,
-            "user_id": user_id
+            "message": message_text
         }
         
         try:

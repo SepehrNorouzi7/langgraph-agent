@@ -1,8 +1,6 @@
-from langgraph.graph import StateGraph, START, END, MessagesState
+from langgraph.graph import StateGraph, START, END
 from langchain.schema import HumanMessage, AIMessage
-from graph.memory import create_memory_graph, save_chat_message
 import logging
-import config
 
 from graph.nodes import (
     profile_node, router_node, study_plan_node, 
@@ -14,20 +12,18 @@ logger = logging.getLogger(__name__)
 
 def build_langgraph(llm):
     """ساخت گراف LangGraph برای بات مشاور تحصیلی"""
-    # ایجاد حافظه گراف
-    memory_graph = create_memory_graph(max_messages=config.MAX_SHORT_TERM_MEMORY)
-    
-    # تعریف ساختار حالت که شامل حافظه است
-    class State(MessagesState):
+    # تعریف ساختار حالت اولیه
+    class State(dict):
+        messages: list
         user_profile: dict
         request_type: str
+        memory: dict
         response: str = None
-        
-        # برای پشتیبانی از exam_results
-        exam_results: dict = None
     
-    # ایجاد گراف با استفاده از حافظه
+    # ایجاد گراف
     graph = StateGraph(State)
+    
+    # افزودن نودها (گره‌ها) به گراف
     graph.add_node("profile", profile_node)
     graph.add_node("router", router_node)
     graph.add_node("study_plan", study_plan_node(llm))
@@ -72,18 +68,13 @@ def build_langgraph(llm):
 async def process_with_langgraph(input_data):
     """پردازش درخواست با استفاده از LangGraph"""
     try:
-        user_id = input_data.get("user_id")
-        message = input_data.get("message", "")
-        
-        # ذخیره پیام کاربر در پایگاه داده
-        if user_id and message:
-            await save_chat_message(user_id, "user", message)
-        
-        # آماده‌سازی ورودی برای LangGraph با استفاده از حافظه
+        # آماده‌سازی ورودی برای LangGraph
         state = {
-            "messages": [HumanMessage(content=message)],
+            "messages": [HumanMessage(content=input_data.get("message", ""))],
             "user_profile": input_data.get("user_profile", {}),
             "request_type": input_data.get("type", "general_chat"),
+            "memory": get_memory(),
+            "response": None,
         }
         
         # اضافه کردن نتایج آزمون در صورت وجود
@@ -120,8 +111,8 @@ async def process_with_langgraph(input_data):
             state = general_chat_node(llm)(state)
         
         # ذخیره در حافظه و برگرداندن پاسخ
-        if user_id and state.get("response"):
-            await save_chat_message(user_id, "assistant", state["response"])           
+        if state.get("response"):
+            update_memory(state["memory"], input_data.get("message", ""), state["response"])
             return state["response"]
         
         logger.error("نتیجه پردازش خالی است")
