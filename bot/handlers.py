@@ -177,6 +177,8 @@ async def analysis_command(update: Update, context: CallbackContext) -> None:
     # ذخیره حالت کاربر برای تحلیل عملکرد
     context.user_data["state"] = "waiting_for_exam_results"
 
+# تغییرات پیشنهادی برای فایل bot/handlers.py:
+
 async def text_message_handler(update: Update, context: CallbackContext) -> None:
     """پردازش پیام‌های متنی کاربر"""
     user_id = update.effective_user.id
@@ -185,6 +187,9 @@ async def text_message_handler(update: Update, context: CallbackContext) -> None
     
     # بررسی حالت کاربر (اگر در روند خاصی مانند درخواست برنامه مطالعاتی یا تحلیل عملکرد است)
     user_state = context.user_data.get("state", None)
+    
+    # ذخیره پیام کاربر در پایگاه داده
+    await save_chat_message(user_id, "user", message_text)
     
     if user_state == "waiting_for_plan_details":
         # پردازش درخواست برنامه مطالعاتی
@@ -200,10 +205,14 @@ async def text_message_handler(update: Update, context: CallbackContext) -> None
         try:
             response = await process_with_langgraph(input_data)
             formatted_response = format_message(response)
+            # ذخیره پاسخ بات در پایگاه داده
+            await save_chat_message(user_id, "bot", formatted_response)
             await update.message.reply_text(formatted_response, parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
             logger.error(f"خطا در پردازش درخواست برنامه مطالعاتی: {e}")
-            await update.message.reply_text("متأسفانه در پردازش درخواست شما مشکلی پیش آمد. لطفاً دوباره تلاش کنید.")
+            error_message = "متأسفانه در پردازش درخواست شما مشکلی پیش آمد. لطفاً دوباره تلاش کنید."
+            await save_chat_message(user_id, "bot", error_message)
+            await update.message.reply_text(error_message)
     
     elif user_state == "waiting_for_exam_results":
         # پردازش تحلیل عملکرد
@@ -226,21 +235,24 @@ async def text_message_handler(update: Update, context: CallbackContext) -> None
         try:
             response = await process_with_langgraph(input_data)
             formatted_response = format_message(response)
+            # ذخیره پاسخ بات در پایگاه داده
+            await save_chat_message(user_id, "bot", formatted_response)
             await update.message.reply_text(formatted_response, parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
             logger.error(f"خطا در پردازش تحلیل عملکرد: {e}")
-            await update.message.reply_text("متأسفانه در پردازش درخواست شما مشکلی پیش آمد. لطفاً دوباره تلاش کنید.")
+            error_message = "متأسفانه در پردازش درخواست شما مشکلی پیش آمد. لطفاً دوباره تلاش کنید."
+            await save_chat_message(user_id, "bot", error_message)
+            await update.message.reply_text(error_message)
     
     else:
         # گفتگوی عمومی
         if not user_profile or not user_profile.get('complete', False):
+            incomplete_profile_message = config.DEFAULT_MESSAGES["profile_incomplete"]
+            await save_chat_message(user_id, "bot", incomplete_profile_message)
             await update.message.reply_text(
-                config.DEFAULT_MESSAGES["profile_incomplete"],
+                incomplete_profile_message,
                 reply_markup=create_profile_keyboard()
             )
-            await save_chat_message(user_id, "user", message_text)
-            if formatted_response:
-                await save_chat_message(user_id, "bot", formatted_response)
             return
         
         # ارسال به LangGraph برای پردازش
@@ -253,7 +265,11 @@ async def text_message_handler(update: Update, context: CallbackContext) -> None
         try:
             response = await process_with_langgraph(input_data)
             formatted_response = format_message(response)
+            # ذخیره پاسخ بات در پایگاه داده
+            await save_chat_message(user_id, "bot", formatted_response)
             await update.message.reply_text(formatted_response, parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
             logger.error(f"خطا در پردازش پیام عمومی: {e}")
-            await update.message.reply_text("متأسفانه در پردازش پیام شما مشکلی پیش آمد. لطفاً دوباره تلاش کنید.")
+            error_message = "متأسفانه در پردازش پیام شما مشکلی پیش آمد. لطفاً دوباره تلاش کنید."
+            await save_chat_message(user_id, "bot", error_message)
+            await update.message.reply_text(error_message)

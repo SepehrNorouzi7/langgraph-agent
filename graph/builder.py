@@ -112,13 +112,6 @@ async def process_with_langgraph(input_data):
         
         # ذخیره در حافظه و برگرداندن پاسخ
         if state.get("response"):
-            # ذخیره پیام کاربر و پاسخ بات در تاریخچه
-            user_id = state["user_profile"].get("user_id")
-            if user_id:
-                from db.models import save_chat_message
-                await save_chat_message(user_id, "user", input_data.get("message", ""))
-                await save_chat_message(user_id, "bot", state["response"])
-            
             update_memory(state["memory"], input_data.get("message", ""), state["response"])
             return state["response"]
         
