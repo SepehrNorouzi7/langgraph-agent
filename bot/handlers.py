@@ -2,7 +2,7 @@ import logging
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.ext import CallbackContext, ConversationHandler
-from db.models import get_user_profile, update_user_profile
+from db.models import save_chat_message, get_user_profile, update_user_profile
 from graph.builder import process_with_langgraph
 from bot.utils import format_message, create_profile_keyboard, create_main_keyboard
 
@@ -122,6 +122,7 @@ async def profile_desired_major(update: Update, context: CallbackContext) -> int
     # ذخیره پروفایل در پایگاه داده
     user_id = update.effective_user.id
     profile_data = {
+        "user_id": user_id, 
         "name": context.user_data.get("name", ""),
         "grade": context.user_data.get("grade", ""),
         "exam_date": context.user_data.get("exam_date", ""),
@@ -237,6 +238,9 @@ async def text_message_handler(update: Update, context: CallbackContext) -> None
                 config.DEFAULT_MESSAGES["profile_incomplete"],
                 reply_markup=create_profile_keyboard()
             )
+            await save_chat_message(user_id, "user", message_text)
+            if formatted_response:
+                await save_chat_message(user_id, "bot", formatted_response)
             return
         
         # ارسال به LangGraph برای پردازش

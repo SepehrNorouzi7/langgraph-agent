@@ -1,6 +1,7 @@
 import logging
 from langchain.schema import HumanMessage, AIMessage
 from langchain.prompts import ChatPromptTemplate
+from db.models import save_chat_message
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,10 @@ def study_plan_node(llm):
         
         # ذخیره پاسخ در state
         state["response"] = response.content
+        if state["response"]:
+            user_id = user_profile.get("user_id")
+            if user_id:
+                save_chat_message(user_id, "bot", state["response"])
         return state
     
     return generate_study_plan
@@ -132,6 +137,10 @@ def performance_analysis_node(llm):
         
         # ذخیره پاسخ در state
         state["response"] = response.content
+        if state["response"]:
+            user_id = user_profile.get("user_id")
+            if user_id:
+                save_chat_message(user_id, "bot", state["response"])
         return state
     
     return analyze_performance
@@ -188,6 +197,10 @@ def general_chat_node(llm):
         
         # ذخیره پاسخ در state
         state["response"] = response.content
+        if state["response"]:
+            user_id = user_profile.get("user_id")
+            if user_id:
+                save_chat_message(user_id, "bot", state["response"])
         return state
     
     return generate_general_response

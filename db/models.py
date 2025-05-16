@@ -64,3 +64,42 @@ async def get_user_exam_history(user_id, limit=5):
     ).sort("timestamp", -1).limit(limit)
     
     return list(cursor)
+
+async def save_chat_message(user_id, message_type, content):
+    """ذخیره پیام چت در پایگاه داده"""
+    db = get_db()
+    if db is None:
+        logger.error("اتصال به پایگاه داده برقرار نیست")
+        return False
+    
+    try:
+        chat_collection = db.chat_history
+        result = chat_collection.insert_one({
+            "user_id": user_id,
+            "timestamp": datetime.datetime.now(),
+            "type": message_type,
+            "content": content
+        })
+        logger.info(f"پیام در تاریخچه چت ذخیره شد: {result.acknowledged}")
+        return result.acknowledged
+    except Exception as e:
+        logger.error(f"خطا در ذخیره پیام چت: {e}")
+        return False
+
+async def get_user_chat_history(user_id, limit=10):
+    """دریافت تاریخچه چت کاربر"""
+    db = get_db()
+    if db is None:
+        logger.error("اتصال به پایگاه داده برقرار نیست")
+        return []
+    
+    try:
+        chat_collection = db.chat_history
+        cursor = chat_collection.find(
+            {"user_id": user_id}
+        ).sort("timestamp", -1).limit(limit)
+        
+        return list(cursor)
+    except Exception as e:
+        logger.error(f"خطا در دریافت تاریخچه چت: {e}")
+        return []
