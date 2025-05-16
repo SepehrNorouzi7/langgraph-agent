@@ -167,7 +167,8 @@ def general_chat_node(llm):
         """
         
         # آماده‌سازی تاریخچه چت
-        chat_history = "\n".join([f"- {msg}" for msg in memory])
+        from graph.memory import get_formatted_memory
+        chat_history = get_formatted_memory(memory)
         
         # پر کردن پرامپت با اطلاعات پروفایل کاربر و پیام
         prompt = ChatPromptTemplate.from_template(template)

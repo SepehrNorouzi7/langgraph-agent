@@ -255,11 +255,15 @@ async def text_message_handler(update: Update, context: CallbackContext) -> None
             )
             return
         
+        from graph.memory import get_memory
+        user_memory = get_memory(user_id)
+        
         # ارسال به LangGraph برای پردازش
         input_data = {
             "type": "general_chat",
             "user_profile": user_profile,
-            "message": message_text
+            "message": message_text,
+            "memory": user_memory
         }
         
         try:

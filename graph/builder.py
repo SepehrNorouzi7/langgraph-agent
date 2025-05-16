@@ -69,11 +69,15 @@ async def process_with_langgraph(input_data):
     """پردازش درخواست با استفاده از LangGraph"""
     try:
         # آماده‌سازی ورودی برای LangGraph
+        from graph.memory import get_memory
+        user_id = input_data.get("user_profile", {}).get("user_id")
+        memory = input_data.get("memory", get_memory(user_id))
+
         state = {
             "messages": [HumanMessage(content=input_data.get("message", ""))],
             "user_profile": input_data.get("user_profile", {}),
             "request_type": input_data.get("type", "general_chat"),
-            "memory": get_memory(),
+            "memory": memory,
             "response": None,
         }
         
