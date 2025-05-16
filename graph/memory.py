@@ -48,9 +48,10 @@ async def get_memory_messages(user_id: int) -> List:
     
     return messages
 
-def create_memory_graph(max_messages: int = 10):
+def create_memory_graph(max_messages: int = 10) -> MessageGraph:
     """ایجاد گراف حافظه با استفاده از langgraph"""
-    return []
+    memory = MessageGraph(max_messages=max_messages)
+    return memory
 
 def get_memory():
     """دریافت حافظه کوتاه مدت و بلند مدت"""
