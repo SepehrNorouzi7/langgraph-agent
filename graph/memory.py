@@ -1,7 +1,8 @@
 import config
 from collections import deque
-import re
 import datetime
+from langchain_openai import ChatOpenAI
+from langchain.prompts import ChatPromptTemplate
 
 _memory_store = {
     "global": {
@@ -9,6 +10,13 @@ _memory_store = {
         "long_term": []
     }
 }
+
+# ایجاد نمونه مدل زبانی برای استخراج اطلاعات
+ai_extractor = ChatOpenAI(
+    model=config.MODEL_NAME,
+    temperature=0.3,
+    api_key=config.OPENAI_API_KEY
+)
 
 def get_memory(user_id=None):
     """دریافت حافظه کوتاه مدت و بلند مدت برای یک کاربر خاص"""
@@ -49,95 +57,63 @@ def update_memory(memory, user_message, bot_response):
     
     return memory
 
-def extract_key_information(user_message, bot_response):
-    """استخراج اطلاعات کلیدی از پیام‌ها برای ذخیره در حافظه بلند مدت"""
-    key_info = {}
+def extract_key_information(user_message, bot_response=""):
+    """استخراج اطلاعات کلیدی از پیام‌ها با استفاده از سرویس AI"""
+    # تعریف پرامپت برای مدل AI
+    template = """
+    تو یک استخراج‌کننده اطلاعات تحصیلی هستی. از متن داده شده اطلاعات کلیدی را استخراج کن.
     
-    # استخراج اشاره به دروس و ترازها
-    subjects = extract_subjects(user_message)
-    if subjects:
-        key_info["subjects"] = subjects
+    متن کاربر:
+    {user_message}
     
-    scores = extract_scores(user_message)
-    if scores:
-        key_info["scores"] = scores
+    پاسخ بات (اگر موجود باشد):
+    {bot_response}
     
-    # استخراج اطلاعات زمانی (مانند برنامه مطالعاتی)
-    study_times = extract_study_times(user_message)
-    if study_times:
-        key_info["study_times"] = study_times
+    لطفاً اطلاعات زیر را به صورت JSON استخراج کن:
+    1. دروس مورد اشاره در متن (subjects): لیست اسامی دروس
+    2. نمرات و ترازها (scores): شامل عدد تراز و نمرات درسی
+    3. زمان‌های مطالعه (study_times): ساعات یا مدت زمان‌های مطالعه
+    4. اهداف تحصیلی (goals): هرگونه هدف تحصیلی اشاره شده
     
-    # استخراج اهداف تحصیلی
-    goals = extract_goals(user_message)
-    if goals:
-        key_info["goals"] = goals
+    تنها اطلاعاتی که با اطمینان در متن وجود دارند را استخراج کن.
+    پاسخ را به صورت یک JSON ساده برگردان بدون هیچ توضیح اضافی.
+    مثال خروجی:
+    {{"subjects": ["ریاضی", "فیزیک"], "scores": {{"traz": "6500", "math": "18"}}, "study_times": {{"hours": "4", "schedule": "8 تا 12"}}, "goals": {{"main": "قبولی پزشکی"}}}}
+    
+    اگر هیچ اطلاعاتی برای یک فیلد وجود نداشت، آن را در خروجی قرار نده.
+    """
+    
+    prompt = ChatPromptTemplate.from_template(template)
+    
+    prompt_values = {
+        "user_message": user_message,
+        "bot_response": bot_response
+    }
+    
+    try:
+        # دریافت پاسخ از LLM
+        messages = prompt.format_messages(**prompt_values)
+        response = ai_extractor.invoke(messages)
         
-    return key_info
-
-def extract_subjects(text):
-    """استخراج نام دروس از متن"""
-    # لیست دروس رایج دبیرستان
-    common_subjects = [
-        "ریاضی", "فیزیک", "شیمی", "زیست", "ادبیات", "عربی", 
-        "دینی", "زبان", "هندسه", "گسسته", "جبر", "حسابان",
-        "فارسی", "زمین شناسی", "آمار", "هندسه تحلیلی"
-    ]
-    
-    found_subjects = []
-    for subject in common_subjects:
-        if subject in text:
-            found_subjects.append(subject)
-    
-    return found_subjects if found_subjects else None
-
-def extract_scores(text):
-    """استخراج نمرات و ترازها از متن"""
-    # الگوی تطبیق برای اعداد ۴ یا ۵ رقمی (ترازها) و اعداد ۱ یا ۲ رقمی (نمرات)
-    traz_pattern = r'(\d{4,5})'
-    score_pattern = r'(\d{1,2})[\.|\،]?(\d{0,2})'
-    
-    traz_matches = re.findall(traz_pattern, text)
-    score_matches = re.findall(score_pattern, text)
-    
-    scores = {}
-    if traz_matches:
-        scores["traz"] = traz_matches
-    if score_matches:
-        scores["scores"] = [''.join(s) for s in score_matches]
-    
-    return scores if scores else None
-
-def extract_study_times(text):
-    """استخراج زمان‌های مطالعه از متن"""
-    # الگوی تطبیق برای ساعت مطالعه
-    time_pattern = r'(\d+)\s*ساعت'
-    hours_pattern = r'(\d+):(\d+)\s*تا\s*(\d+):(\d+)'
-    
-    time_matches = re.findall(time_pattern, text)
-    hours_matches = re.findall(hours_pattern, text)
-    
-    study_times = {}
-    if time_matches:
-        study_times["duration"] = time_matches
-    if hours_matches:
-        study_times["schedule"] = hours_matches
-    
-    return study_times if study_times else None
-
-def extract_goals(text):
-    """استخراج اهداف تحصیلی از متن"""
-    goal_keywords = [
-        "هدف", "قبولی", "دانشگاه", "رشته", "رتبه", "کنکور", 
-        "آزمون", "موفقیت", "پیشرفت"
-    ]
-    
-    for keyword in goal_keywords:
-        if keyword in text:
-            # اینجا می‌توان با تکنیک‌های NLP پیچیده‌تر، جملات مرتبط با هدف را استخراج کرد
-            # فعلاً به سادگی وجود کلیدواژه را برمی‌گردانیم
-            return {"has_goal": True, "keyword": keyword}
-    
-    return None
+        # تبدیل پاسخ JSON به دیکشنری
+        import json
+        try:
+            # حذف کاراکترهای اضافی احتمالی JSON (مانند ```json و ```)
+            content = response.content
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].strip()
+            
+            key_info = json.loads(content)
+            return key_info
+        except json.JSONDecodeError:
+            # اگر پاسخ JSON قابل پردازش نبود، یک دیکشنری خالی برگردان
+            return {}
+            
+    except Exception as e:
+        print(f"خطا در استخراج اطلاعات با AI: {e}")
+        return {}
 
 def get_formatted_memory(memory):
     """تبدیل حافظه به فرمت مناسب برای ارسال به مدل زبانی"""
@@ -158,14 +134,3 @@ def get_formatted_memory(memory):
                 formatted += f"- {key}: {value}\n"
     
     return formatted
-
-def extract_key_information(message):
-    """استخراج اطلاعات کلیدی از پیام برای ذخیره در حافظه بلند مدت"""
-    # این بخش می‌تواند با استفاده از NLP یا قوانین ساده پیاده‌سازی شود
-    # در نسخه ساده فعلی، فقط یک متد خالی است
-    key_info = {}
-    
-    # نمونه استخراج اطلاعات:
-    # اگر پیام شامل اسم یک درس خاص باشد، آن را به عنوان مورد علاقه یا مورد نفرت ذخیره کنیم
-    
-    return key_info

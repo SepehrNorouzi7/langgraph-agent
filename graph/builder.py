@@ -116,7 +116,8 @@ async def process_with_langgraph(input_data):
         
         # ذخیره در حافظه و برگرداندن پاسخ
         if state.get("response"):
-            update_memory(state["memory"], input_data.get("message", ""), state["response"])
+            user_message = input_data.get("message", "")
+            update_memory(memory, user_message, state["response"])
             return state["response"]
         
         logger.error("نتیجه پردازش خالی است")

@@ -144,44 +144,64 @@ def general_chat_node(llm):
         message = state["messages"][-1].content if state["messages"] else ""
         memory = state["memory"]
         
-        # ساخت پرامپت برای LLM
-        template = """
-        شما مشاور تحصیلی دانش‌آموز هستید و باید به سؤال یا پیام او پاسخ دهید.
+        # تشخیص اطلاعات مرتبط با پیام
+        relevant_info = get_relevant_profile_info(message, user_profile)
         
-        اطلاعات دانش‌آموز:
-        - نام: {name}
-        - پایه تحصیلی: {grade}
-        - تاریخ کنکور: {exam_date}
-        - دروس مورد علاقه: {favorite_subjects}
-        - دروس مورد نفرت: {disliked_subjects}
-        - رشته مورد نظر: {desired_major}
+        # تعیین طول پاسخ بر اساس طول پیام کاربر
+        is_short_message = len(message.split()) < 10
+        length_instruction = "پاسخ را کوتاه و مختصر بنویسید (حداکثر 2-3 جمله)." if is_short_message else ""
         
-        تاریخچه مکالمه:
-        {chat_history}
+        # ساخت پرامپت هوشمند برای LLM
+        if len(relevant_info) > 1:  # اگر بیش از نام کاربر، اطلاعات مرتبط وجود دارد
+            template = """
+            شما مشاور تحصیلی دانش‌آموز هستید و باید به سؤال یا پیام او پاسخ دهید.
+            
+            اطلاعات مرتبط با سوال دانش‌آموز:
+            {relevant_info}
+            
+            پیام دانش‌آموز: {message}
+            
+            لطفاً پاسخی مرتبط با پیام دانش‌آموز ارائه دهید و فقط به موضوع سوال یا پیام او بپردازید.
+            پاسخ را به فارسی بنویسید و لحن دوستانه داشته باشید.
+            {length_instruction}
+            """
+            
+            # آماده‌سازی اطلاعات مرتبط به فرمت مناسب
+            relevant_info_text = ""
+            for key, value in relevant_info.items():
+                if key == "name":
+                    continue  # نام در فرمت دیگری استفاده می‌شود
+                if key == "favorite_subjects" or key == "disliked_subjects":
+                    if isinstance(value, list):
+                        value = ", ".join(value)
+                key_name = {
+                    "grade": "پایه تحصیلی",
+                    "exam_date": "تاریخ کنکور",
+                    "favorite_subjects": "دروس مورد علاقه",
+                    "disliked_subjects": "دروس مورد نفرت",
+                    "desired_major": "رشته مورد نظر"
+                }.get(key, key)
+                relevant_info_text += f"- {key_name}: {value}\n"
+        else:
+            # اگر اطلاعات مرتبطی شناسایی نشد، پرامپت ساده‌تر استفاده می‌شود
+            template = """
+            شما مشاور تحصیلی دانش‌آموز هستید و باید به پیام او پاسخ دهید.
+            
+            پیام دانش‌آموز: {message}
+            
+            لطفاً پاسخی مناسب به پیام دانش‌آموز ارائه دهید.
+            پاسخ را به فارسی بنویسید و لحن دوستانه داشته باشید.
+            {length_instruction}
+            """
+            relevant_info_text = ""
         
-        پیام دانش‌آموز: {message}
-        
-        لطفاً پاسخی دوستانه، مفید و مرتبط با پیام دانش‌آموز ارائه دهید.
-        پاسخ را به فارسی بنویسید و لحن دوستانه و مشاورانه داشته باشید.
-        از ایموجی استفاده کنید تا پاسخ جذاب‌تر شود.
-        """
-        
-        # آماده‌سازی تاریخچه چت
-        from graph.memory import get_formatted_memory
-        chat_history = get_formatted_memory(memory)
-        
-        # پر کردن پرامپت با اطلاعات پروفایل کاربر و پیام
+        # پر کردن پرامپت
         prompt = ChatPromptTemplate.from_template(template)
         
         prompt_values = {
-            "name": user_profile.get("name", "دانش‌آموز"),
-            "grade": user_profile.get("grade", "نامشخص"),
-            "exam_date": user_profile.get("exam_date", "نامشخص"),
-            "favorite_subjects": ", ".join(user_profile.get("favorite_subjects", [])),
-            "disliked_subjects": ", ".join(user_profile.get("disliked_subjects", [])),
-            "desired_major": user_profile.get("desired_major", "نامشخص"),
-            "chat_history": chat_history,
-            "message": message
+            "message": message,
+            "relevant_info": relevant_info_text,
+            "length_instruction": length_instruction
         }
         
         # دریافت پاسخ از LLM
@@ -193,3 +213,28 @@ def general_chat_node(llm):
         return state
     
     return generate_general_response
+
+def get_relevant_profile_info(message, user_profile):
+    """تشخیص اطلاعات پروفایل مرتبط با پیام کاربر"""
+    relevant_info = {"name": user_profile.get("name", "دانش‌آموز")}
+    
+    # کلمات کلیدی برای هر بخش پروفایل
+    keywords = {
+        "grade": ["پایه", "کلاس", "سال تحصیلی", "دهم", "یازدهم", "دوازدهم"],
+        "exam_date": ["کنکور", "آزمون", "تاریخ", "زمان", "امتحان"],
+        "favorite_subjects": ["علاقه", "دوست دارم", "درس مورد علاقه", "علاقمندم"],
+        "disliked_subjects": ["متنفر", "بدم میاد", "سخت", "مشکل دارم", "ضعیف"],
+        "desired_major": ["رشته", "دانشگاه", "هدف", "آینده", "ادامه تحصیل", "تحصیل"]
+    }
+    
+    # تبدیل پیام به حروف کوچک برای تطبیق آسان‌تر
+    message_lower = message.lower()
+    
+    # بررسی کلمات کلیدی در پیام
+    for info_key, key_list in keywords.items():
+        for keyword in key_list:
+            if keyword in message_lower:
+                relevant_info[info_key] = user_profile.get(info_key, "نامشخص")
+                break
+    
+    return relevant_info
