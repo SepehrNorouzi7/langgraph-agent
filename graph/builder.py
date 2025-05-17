@@ -1,5 +1,6 @@
 from langgraph.graph import StateGraph, START, END
 from langchain.schema import HumanMessage, AIMessage
+from bot.utils import WebSearchTool
 import logging
 
 from graph.nodes import (
@@ -94,8 +95,8 @@ async def process_with_langgraph(input_data):
             model=config.MODEL_NAME,
             temperature=0.7,
             api_key=config.OPENAI_API_KEY,
-            model_kwargs={"tools": [{"type": "web_search"}]},
-        )
+            #model_kwargs={"tools": [{"type": "web_search"}]},
+        ).bind_tools([WebSearchTool()], tool_choice="auto")
 
         # روش مستقیم: به جای استفاده از گراف، مستقیم به نودهای مناسب دسترسی پیدا کنیم
         request_type = input_data.get("type", "general_chat")

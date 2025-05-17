@@ -7,7 +7,7 @@ from telegram.ext import (
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph
 import pymongo
-
+from bot.utils import WebSearchTool
 import config
 from bot.handlers import (
     start_command, help_command, profile_command, 
@@ -65,8 +65,8 @@ def setup_langgraph():
         model=config.MODEL_NAME,
         temperature=0.7,
         api_key=config.OPENAI_API_KEY,
-        model_kwargs={"tools": [{"type": "web_search"}]}
-    )
+        #model_kwargs={"tools": [{"type": "web_search"}]}
+    ).bind_tools([WebSearchTool()], tool_choice="auto")
     
     # ساخت گراف
     workflow_graph = build_langgraph(llm)

@@ -1,16 +1,34 @@
 from telegram import ReplyKeyboardMarkup
-import json
+from typing import ClassVar
 from langchain.schema import BaseMessage
+from langchain.tools import BaseTool
+
+class WebSearchTool(BaseTool):
+    # حتماً از annotation استفاده کنید
+    name: ClassVar[str] = "web_search"
+    description: ClassVar[str] = "Use this tool to perform web searches with OpenAI's web_search preview"
+    
+    def _run(self, query: str) -> str:
+        # پیاده‌سازی وب‌سرچ دلخواه شما
+        return f"نتایج جستجو برای: {query}"
 
 def format_message(response):
+    """متن پاسخ را از فرمت‌های مختلف استخراج می‌کند"""
     # حالت دیکشنری
     if isinstance(response, dict):
-        raw = response.get("text") or response.get("content") or ""
-        # دیکد کردن یونیکد JSON
-        return json.loads(f'"{raw}"')
+        # بررسی اگر پاسخ شامل فیلد text یا content است
+        if "text" in response:
+            return response["text"]
+        elif "content" in response:
+            return response["content"]
+        # در صورتی که هیچ کدام از فیلدهای بالا نباشد، خود دیکشنری را برگردان
+        return str(response)
+    
     # حالت BaseMessage
     if hasattr(response, "content"):
         return response.content
+    
+    # در غیر این صورت، تبدیل به رشته
     return str(response)
 
 def create_profile_keyboard() -> ReplyKeyboardMarkup:

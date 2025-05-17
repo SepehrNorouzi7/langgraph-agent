@@ -3,6 +3,7 @@ from collections import deque
 import datetime
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
+from bot.utils import WebSearchTool
 
 _memory_store = {
     "global": {
@@ -16,8 +17,8 @@ ai_extractor = ChatOpenAI(
     model=config.MODEL_NAME,
     temperature=0.3,
     api_key=config.OPENAI_API_KEY,
-    model_kwargs={"tools": [{"type": "web_search"}]},
-)
+   # model_kwargs={"tools": [{"type": "web_search"}]},
+).bind_tools([WebSearchTool()], tool_choice="auto")
 
 def get_memory(user_id=None):
     """دریافت حافظه کوتاه مدت و بلند مدت برای یک کاربر خاص"""
