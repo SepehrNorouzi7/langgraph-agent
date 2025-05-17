@@ -15,7 +15,8 @@ _memory_store = {
 ai_extractor = ChatOpenAI(
     model=config.MODEL_NAME,
     temperature=0.3,
-    api_key=config.OPENAI_API_KEY
+    api_key=config.OPENAI_API_KEY,
+    model_kwargs={"tools": [{"type": "web_search"}]},
 )
 
 def get_memory(user_id=None):
@@ -94,7 +95,6 @@ def extract_key_information(user_message, bot_response=""):
         # دریافت پاسخ از LLM
         messages = prompt.format_messages(**prompt_values)
         response = ai_extractor.invoke(messages)
-        
         # تبدیل پاسخ JSON به دیکشنری
         import json
         try:
@@ -108,7 +108,6 @@ def extract_key_information(user_message, bot_response=""):
             key_info = json.loads(content)
             return key_info
         except json.JSONDecodeError:
-            # اگر پاسخ JSON قابل پردازش نبود، یک دیکشنری خالی برگردان
             return {}
             
     except Exception as e:

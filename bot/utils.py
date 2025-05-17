@@ -1,9 +1,17 @@
 from telegram import ReplyKeyboardMarkup
+import json
+from langchain.schema import BaseMessage
 
-def format_message(message: str) -> str:
-    """قالب‌بندی پیام برای نمایش به کاربر"""
-    # اگر نیاز به پردازش خاصی روی متن پاسخ دارید، اینجا انجام دهید
-    return message
+def format_message(response):
+    # حالت دیکشنری
+    if isinstance(response, dict):
+        raw = response.get("text") or response.get("content") or ""
+        # دیکد کردن یونیکد JSON
+        return json.loads(f'"{raw}"')
+    # حالت BaseMessage
+    if hasattr(response, "content"):
+        return response.content
+    return str(response)
 
 def create_profile_keyboard() -> ReplyKeyboardMarkup:
     """ساخت کیبورد برای تکمیل پروفایل"""

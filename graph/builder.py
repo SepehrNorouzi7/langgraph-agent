@@ -93,7 +93,8 @@ async def process_with_langgraph(input_data):
         llm = ChatOpenAI(
             model=config.MODEL_NAME,
             temperature=0.7,
-            api_key=config.OPENAI_API_KEY
+            api_key=config.OPENAI_API_KEY,
+            model_kwargs={"tools": [{"type": "web_search"}]},
         )
 
         # روش مستقیم: به جای استفاده از گراف، مستقیم به نودهای مناسب دسترسی پیدا کنیم
