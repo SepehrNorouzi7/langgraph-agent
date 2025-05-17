@@ -144,6 +144,10 @@ def general_chat_node(llm):
         message = state["messages"][-1].content if state["messages"] else ""
         memory = state["memory"]
         
+        # دریافت حافظه کوتاه مدت به صورت فرمت‌بندی شده
+        from graph.memory import get_formatted_memory
+        memory_context = get_formatted_memory(memory)
+        
         # تشخیص اطلاعات مرتبط با پیام
         relevant_info = get_relevant_profile_info(message, user_profile)
         
@@ -152,55 +156,50 @@ def general_chat_node(llm):
         length_instruction = "پاسخ را کوتاه و مختصر بنویسید (حداکثر 2-3 جمله)." if is_short_message else ""
         
         # ساخت پرامپت هوشمند برای LLM
-        if len(relevant_info) > 1:  # اگر بیش از نام کاربر، اطلاعات مرتبط وجود دارد
-            template = """
-            شما مشاور تحصیلی دانش‌آموز هستید و باید به سؤال یا پیام او پاسخ دهید.
-            
-            اطلاعات مرتبط با سوال دانش‌آموز:
-            {relevant_info}
-            
-            پیام دانش‌آموز: {message}
-            
-            لطفاً پاسخی مرتبط با پیام دانش‌آموز ارائه دهید و فقط به موضوع سوال یا پیام او بپردازید.
-            پاسخ را به فارسی بنویسید و لحن دوستانه داشته باشید.
-            {length_instruction}
-            """
-            
-            # آماده‌سازی اطلاعات مرتبط به فرمت مناسب
-            relevant_info_text = ""
-            for key, value in relevant_info.items():
-                if key == "name":
-                    continue  # نام در فرمت دیگری استفاده می‌شود
-                if key == "favorite_subjects" or key == "disliked_subjects":
-                    if isinstance(value, list):
-                        value = ", ".join(value)
-                key_name = {
-                    "grade": "پایه تحصیلی",
-                    "exam_date": "تاریخ کنکور",
-                    "favorite_subjects": "دروس مورد علاقه",
-                    "disliked_subjects": "دروس مورد نفرت",
-                    "desired_major": "رشته مورد نظر"
-                }.get(key, key)
-                relevant_info_text += f"- {key_name}: {value}\n"
-        else:
-            # اگر اطلاعات مرتبطی شناسایی نشد، پرامپت ساده‌تر استفاده می‌شود
-            template = """
-            شما مشاور تحصیلی دانش‌آموز هستید و باید به پیام او پاسخ دهید.
-            
-            پیام دانش‌آموز: {message}
-            
-            لطفاً پاسخی مناسب به پیام دانش‌آموز ارائه دهید.
-            پاسخ را به فارسی بنویسید و لحن دوستانه داشته باشید.
-            {length_instruction}
-            """
-            relevant_info_text = ""
+        template = """
+        شما مشاور تحصیلی دانش‌آموز هستید و باید به سؤال یا پیام او پاسخ دهید.
         
+        اطلاعات دانش‌آموز:
+        - نام: {name}
+        
+        {relevant_info_text}
+        
+        تاریخچه مکالمات قبلی:
+        {memory_context}
+        
+        پیام جدید دانش‌آموز: {message}
+        
+        مهم: به مکالمات قبلی توجه کنید و از تکرار خوشامدگویی یا سلام در صورتی که قبلاً انجام شده خودداری کنید.
+        پاسخ را به فارسی بنویسید و لحن دوستانه و محاوره‌ای داشته باشید.
+        تنها به پیام فعلی کاربر پاسخ دهید و به صورت طبیعی مکالمه را ادامه دهید.
+        {length_instruction}
+        """
+        
+        # آماده‌سازی اطلاعات مرتبط به فرمت مناسب
+        relevant_info_text = ""
+        for key, value in relevant_info.items():
+            if key == "name":
+                continue  # نام در فرمت دیگری استفاده می‌شود
+            if key == "favorite_subjects" or key == "disliked_subjects":
+                if isinstance(value, list):
+                    value = ", ".join(value)
+            key_name = {
+                "grade": "پایه تحصیلی",
+                "exam_date": "تاریخ کنکور",
+                "favorite_subjects": "دروس مورد علاقه",
+                "disliked_subjects": "دروس مورد نفرت",
+                "desired_major": "رشته مورد نظر"
+            }.get(key, key)
+            relevant_info_text += f"- {key_name}: {value}\n"
+            
         # پر کردن پرامپت
         prompt = ChatPromptTemplate.from_template(template)
         
         prompt_values = {
+            "name": user_profile.get("name", "دانش‌آموز"),
             "message": message,
-            "relevant_info": relevant_info_text,
+            "relevant_info_text": relevant_info_text,
+            "memory_context": memory_context,
             "length_instruction": length_instruction
         }
         

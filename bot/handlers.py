@@ -255,15 +255,30 @@ async def text_message_handler(update: Update, context: CallbackContext) -> None
             )
             return
         
+        # دریافت حافظه کاربر
         from graph.memory import get_memory
         user_memory = get_memory(user_id)
+        
+        # بررسی آیا پیام تکراری سلام است
+        is_greeting = any(word in message_text.lower() for word in ["سلام", "درود", "خوبی", "چطوری"])
+        has_recent_greeting = False
+        
+        # بررسی آخرین پیام‌های کاربر برای تشخیص تکرار سلام
+        if is_greeting and user_memory["short_term"]:
+            recent_messages = list(user_memory["short_term"])[-6:]  # بررسی 6 پیام آخر
+            for msg in recent_messages:
+                if msg["role"] == "user" and any(word in msg["content"].lower() for word in ["سلام", "درود", "خوبی", "چطوری"]):
+                    if msg["content"] != message_text:  # اگر پیام دقیقاً همین نباشد
+                        has_recent_greeting = True
+                        break
         
         # ارسال به LangGraph برای پردازش
         input_data = {
             "type": "general_chat",
             "user_profile": user_profile,
             "message": message_text,
-            "memory": user_memory
+            "memory": user_memory,
+            "has_recent_greeting": has_recent_greeting  # اضافه کردن اطلاعات سلام تکراری
         }
         
         try:

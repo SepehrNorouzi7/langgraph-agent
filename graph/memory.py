@@ -122,14 +122,23 @@ def get_formatted_memory(memory):
     # افزودن حافظه کوتاه مدت
     if memory["short_term"]:
         formatted += "آخرین مکالمات:\n"
-        for i, msg in enumerate(list(memory["short_term"])[-10:]):  # آخرین 10 پیام
-            formatted += f"{msg['role'] == 'user' and 'کاربر' or 'بات'}: {msg['content'][:100]}...\n"
+        messages = list(memory["short_term"])
+        # مرتب‌سازی پیام‌ها بر اساس زمان
+        for i, msg in enumerate(messages[-10:]):  # آخرین 10 پیام
+            role = "کاربر" if msg['role'] == 'user' else "بات"
+            content = msg['content']
+            # محدود کردن طول پیام‌ها برای جلوگیری از شلوغی
+            if len(content) > 100:
+                content = content[:100] + "..."
+            formatted += f"{i+1}. {role}: {content}\n"
     
     # افزودن اطلاعات کلیدی از حافظه بلند مدت
     if memory["long_term"]:
-        formatted += "\nاطلاعات کلیدی استخراج شده:\n"
-        for item in memory["long_term"][-5:]:  # آخرین 5 مورد اطلاعات کلیدی
+        formatted += "\nاطلاعات کلیدی:\n"
+        for i, item in enumerate(memory["long_term"][-3:]):  # آخرین 3 مورد اطلاعات کلیدی
             info = item["info"]
+            timestamp = item.get("timestamp", "")
+            formatted += f"مورد {i+1} ({timestamp}):\n"
             for key, value in info.items():
                 formatted += f"- {key}: {value}\n"
     
